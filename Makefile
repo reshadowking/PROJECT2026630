@@ -1,16 +1,18 @@
 CC = gcc
-CFLAGS = -Wall -g
-LDFLAGS = -lpcap -lpthread
-OBJ = main.o capture.o parser.o traffic_stat.o tcp_reassemble.o tls_sni.o
-TARGET = sniffer
+CFLAGS = -Wall -g -I./include
+LIBS = -lpcap -lpthread
 
-all: $(TARGET)
+# 所有编译目标文件
+OBJ = src/main.o src/capture.o src/parser.o src/traffic_stat.o src/tcp_reassemble.o src/tls_sni.o
 
-$(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $(TARGET) $(LDFLAGS)
+# 链接生成可执行程序
+sniffer: $(OBJ)
+	$(CC) $(OBJ) -o sniffer $(LIBS)
 
-%.o: %.c common.h capture.h parser.h traffic_stat.h tcp_reassemble.h tls_sni.h
-	$(CC) $(CFLAGS) -c $<
+# 通用编译规则：src下c文件编译为对应o，依赖全部头文件
+src/%.o: src/%.c include/*.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
+# 清理编译产物
 clean:
-	rm -rf *.o $(TARGET)
+	rm -rf $(OBJ) sniffer
