@@ -1,15 +1,14 @@
 #include "common.h"
 #include "capture.h"
 #include "traffic_stat.h"
-
+#include "tcp_reassemble.h"
 int g_use_ncurses = 0;
+volatile int exit_flag = 0;
 
+// 纯标记，无任何打印IO
 void sig_exit(int sig) {
     (void)sig;
-    stat_thread_stop();
-    close_capture();
-    printf("\nExit success\n");
-    exit(0);
+    exit_flag = 1;
 }
 
 void usage() {
@@ -23,7 +22,6 @@ int main(int argc, char** argv) {
     char filter[256] = "";
     char wfile[128] = "";
     char rfile[128] = "";
-
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-i"))
             strcpy(dev, argv[++i]);
@@ -38,20 +36,16 @@ int main(int argc, char** argv) {
             return -1;
         }
     }
-
-    // 实时抓包必须指定网卡
     if (strlen(rfile) == 0 && strlen(dev) == 0) {
         usage();
         fprintf(stderr, "Error: Must specify -i dev for live capture\n");
         return -1;
     }
-
+    int ret;
     if (strlen(rfile)) {
         if (open_pcap_file(rfile) != 0)
             return -1;
     } else {
-        // 空过滤传NULL，修复BPF编译错误
-        int ret;
         if (strlen(filter) > 0)
             ret = open_capture(dev, filter);
         else
@@ -59,16 +53,22 @@ int main(int argc, char** argv) {
         if (ret != 0)
             return -1;
     }
-
     if (strlen(wfile))
         save_pcap(wfile);
-
-    // 离线回放不启动统计线程
     if (strlen(rfile) == 0)
         stat_thread_start();
-
     printf("Capture running... Ctrl+C exit\n");
-    start_loop();
+    fflush(stdout);
+    start_loop(&exit_flag);
+
+    // 主线程跳出循环后，清空输出缓冲区再清理
+    fflush(stdout);
+    printf("\n==== Cleanup start ====\n");
+    fflush(stdout);
+    stat_thread_stop();
+    tcp_flow_clear_all();
     close_capture();
+    printf("Exit success\n");
+    fflush(stdout);
     return 0;
 }
