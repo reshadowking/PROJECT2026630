@@ -11,7 +11,6 @@ void tls_extract_sni(const u_char *data, int len, char *sni_out) {
     int offset = 5;
     if (offset + 1 > len)
         return;
-    uint16_t handshake_len = (data[offset] << 8) | data[offset + 1];
     offset += 3;
 
     if (offset >= len)
