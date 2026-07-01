@@ -2,8 +2,8 @@ CC = gcc
 CFLAGS = -Wall -g -I./include
 LIBS = -lpcap -lpthread
 
-# 所有编译目标文件
-OBJ = src/main.o src/capture.o src/parser.o src/traffic_stat.o src/tcp_reassemble.o src/tls_sni.o
+# 新增 src/dns.o 编译目标
+OBJ = src/main.o src/capture.o src/parser.o src/traffic_stat.o src/tcp_reassemble.o src/tls_sni.o src/dns.o
 
 # 链接生成可执行程序
 sniffer: $(OBJ)
