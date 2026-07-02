@@ -2,7 +2,6 @@
 #include "parser.h"
 pcap_t *g_handle = NULL;
 pcap_dumper_t *g_dumper = NULL;
-
 int open_capture(const char *dev, const char *filter) {
     char errbuf[PCAP_ERRBUF_SIZE];
     g_handle = pcap_open_live(dev, BUF_MAX, 1, 100, errbuf);
@@ -23,11 +22,9 @@ int open_capture(const char *dev, const char *filter) {
             return -1;
         }
     }
-    // 设为非阻塞
     pcap_setnonblock(g_handle, 1, errbuf);
     return 0;
 }
-
 int open_pcap_file(const char *file) {
     char errbuf[PCAP_ERRBUF_SIZE];
     g_handle = pcap_open_offline(file, errbuf);
@@ -37,7 +34,6 @@ int open_pcap_file(const char *file) {
     }
     return 0;
 }
-
 int save_pcap(const char *path) {
     g_dumper = pcap_dump_open(g_handle, path);
     if (!g_dumper) {
@@ -46,7 +42,6 @@ int save_pcap(const char *path) {
     }
     return 0;
 }
-
 void close_capture() {
     if (g_dumper) {
         pcap_dump_flush(g_dumper);
@@ -55,14 +50,11 @@ void close_capture() {
     if (g_handle)
         pcap_close(g_handle);
 }
-
 void packet_callback(u_char *u, const struct pcap_pkthdr *hdr, const u_char *data) {
     if (g_dumper)
         pcap_dump((u_char *)g_dumper, hdr, data);
     parse_packet(hdr, data);
 }
-
-// 自定义非阻塞循环
 void start_loop(volatile int *exit_flag) {
     struct pcap_pkthdr *hdr;
     const u_char *pkt_data;
@@ -70,11 +62,11 @@ void start_loop(volatile int *exit_flag) {
     while (!*exit_flag) {
         ret = pcap_next_ex(g_handle, &hdr, &pkt_data);
         if (ret == 1) {
-            packet_callback(NULL, hdr, pkt_data); // 正确函数名
+            packet_callback(NULL, hdr, pkt_data);
         } else if (ret == -1) {
             fprintf(stderr, "pcap read error: %s\n", pcap_geterr(g_handle));
             break;
         }
-        usleep(50000);
+        usleep(10000); // 缩短休眠，快速检测Ctrl+C
     }
 }

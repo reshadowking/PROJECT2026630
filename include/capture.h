@@ -1,5 +1,6 @@
 #ifndef CAPTURE_H
 #define CAPTURE_H
+#include <pcap.h>
 int open_capture(const char *dev, const char *filter);
 int open_pcap_file(const char *file);
 int save_pcap(const char *path);

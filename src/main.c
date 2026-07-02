@@ -23,15 +23,39 @@ int main(int argc, char** argv) {
     char wfile[128] = "";
     char rfile[128] = "";
     for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "-i"))
-            strcpy(dev, argv[++i]);
-        else if (!strcmp(argv[i], "-f"))
-            strcpy(filter, argv[++i]);
-        else if (!strcmp(argv[i], "-w"))
-            strcpy(wfile, argv[++i]);
-        else if (!strcmp(argv[i], "-r"))
-            strcpy(rfile, argv[++i]);
-        else {
+        if (!strcmp(argv[i], "-i")) {
+            if (i + 1 >= argc) {
+                usage();
+                fprintf(stderr, "Error: -i requires an interface name\n");
+                return -1;
+            }
+            strncpy(dev, argv[++i], sizeof(dev) - 1);
+            dev[sizeof(dev) - 1] = '\0';
+        } else if (!strcmp(argv[i], "-f")) {
+            if (i + 1 >= argc) {
+                usage();
+                fprintf(stderr, "Error: -f requires a filter string\n");
+                return -1;
+            }
+            strncpy(filter, argv[++i], sizeof(filter) - 1);
+            filter[sizeof(filter) - 1] = '\0';
+        } else if (!strcmp(argv[i], "-w")) {
+            if (i + 1 >= argc) {
+                usage();
+                fprintf(stderr, "Error: -w requires a save file path\n");
+                return -1;
+            }
+            strncpy(wfile, argv[++i], sizeof(wfile) - 1);
+            wfile[sizeof(wfile) - 1] = '\0';
+        } else if (!strcmp(argv[i], "-r")) {
+            if (i + 1 >= argc) {
+                usage();
+                fprintf(stderr, "Error: -r requires a pcap file path\n");
+                return -1;
+            }
+            strncpy(rfile, argv[++i], sizeof(rfile) - 1);
+            rfile[sizeof(rfile) - 1] = '\0';
+        } else {
             usage();
             return -1;
         }

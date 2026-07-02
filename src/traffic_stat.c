@@ -3,19 +3,16 @@
 traffic_stat g_stat = {0};
 pthread_mutex_t stat_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t flow_hash_mutex = PTHREAD_MUTEX_INITIALIZER;
-// 五元组哈希存储数组
 flow_stat_entry flow_hash[FLOW_HASH_SIZE] = {0};
 static pthread_t stat_tid;
 static int stat_running = 1;
 static void *stat_loop(void *arg);
 
-// 哈希简易取模
 static unsigned int flow_hash_idx(const flow5_key *k) {
     unsigned int h = k->sip ^ k->dip ^ k->sp ^ k->dp ^ k->proto;
     return h % FLOW_HASH_SIZE;
 }
 
-// 新增/更新五元组流量
 void flow_stat_add(const flow5_key *key, int pkt_len) {
     pthread_mutex_lock(&flow_hash_mutex);
     unsigned int idx = flow_hash_idx(key);
@@ -38,7 +35,6 @@ void flow_stat_add(const flow5_key *key, int pkt_len) {
     pthread_mutex_unlock(&flow_hash_mutex);
 }
 
-// 打印全部活跃五元组流量
 void print_all_flow_stat() {
     pthread_mutex_lock(&flow_hash_mutex);
     printf("--------五元组流量明细--------\n");
@@ -50,10 +46,9 @@ void print_all_flow_stat() {
                e->pkt_cnt, e->byte_cnt);
     }
     printf("-----------------------------\n");
-    pthread_mutex_unlock(&stat_mutex);
+    pthread_mutex_unlock(&flow_hash_mutex);
 }
 
-// 全局总统计接口
 void stat_inc_total(int byte) {
     pthread_mutex_lock(&stat_mutex);
     g_stat.pkt_total++;
@@ -86,7 +81,6 @@ void stat_inc_dns() {
     pthread_mutex_unlock(&stat_mutex);
 }
 
-// 打印汇总统计 + 每条五元组流量
 void print_stat() {
     pthread_mutex_lock(&stat_mutex);
     printf("===== 全局流量汇总 =====\n");
@@ -98,12 +92,11 @@ void print_stat() {
     print_all_flow_stat();
 }
 
-// 优化循环：每100ms检查退出标记，无长阻塞睡眠
 void *stat_loop(void *arg) {
     (void)arg;
     int tick_cnt = 0;
     const int TICK_PER_SEC = 10;
-    const int PRINT_INTERVAL = 5;
+    const int PRINT_INTERVAL = 1; // 1秒打印一次汇总
     while(stat_running) {
         usleep(100000);
         if (!stat_running) break;
@@ -120,8 +113,6 @@ void stat_thread_start() {
     stat_running = 1;
     pthread_create(&stat_tid, NULL, stat_loop, NULL);
 }
-
-// 标准join，无np扩展函数
 void stat_thread_stop() {
     stat_running = 0;
     pthread_join(stat_tid, NULL);
