@@ -1,47 +1,44 @@
 #include "tls_sni.h"
+#include <stdint.h>
+typedef unsigned char  uint8;
+typedef unsigned short uint16;
+typedef unsigned int   uint32;
 
 void tls_extract_sni(const u_char *data, int len, char *sni_out) {
     memset(sni_out, 0, 256);
-    if (len < 5)
-        return;
-    // 仅处理TLS握手报文
-    if (data[0] != 0x16)
-        return;
-
-    int offset = 5;
-    if (offset + 1 > len)
-        return;
-    offset += 3;
-
-    if (offset >= len)
-        return;
-    // 只解析ClientHello
-    if (data[offset] != 0x01)
-        return;
-
-    offset += 46;
-    if (offset + 2 > len)
-        return;
-    uint16_t ext_total_len = (data[offset] << 8) | data[offset + 1];
-    offset += 2;
-
-    // 遍历所有扩展，寻找SNI(类型0)
-    while (offset + 4 <= len && ext_total_len > 0) {
-        uint16_t ext_type = (data[offset] << 8) | data[offset + 1];
-        uint16_t ext_len = (data[offset + 2] << 8) | data[offset + 3];
-        offset += 4;
-
+    if (len < 9) return;
+    if (data[0] != 0x16) return;
+    uint16 rec_len = (data[1] << 8) | data[2];
+    int rec_end = 5 + rec_len;
+    if (rec_end > len) return;
+    int ptr = 5;
+    uint8 hs_type = data[ptr];
+    if (hs_type != 0x01) return;
+    ptr += 4; // 删除未使用hs_len变量，消除警告
+    ptr += 2 + 32;
+    uint8 sid_len = data[ptr++];
+    ptr += sid_len;
+    uint16 cipher_len = (data[ptr] << 8) | data[ptr+1];
+    ptr += 2 + cipher_len;
+    uint8 comp_len = data[ptr++];
+    ptr += comp_len;
+    if (ptr + 2 > rec_end) return;
+    uint16 ext_total = (data[ptr] << 8) | data[ptr+1];
+    ptr += 2;
+    while (ptr + 4 <= rec_end && ext_total > 0) {
+        uint16 ext_type = (data[ptr] << 8) | data[ptr+1];
+        uint16 ext_len = (data[ptr+2] << 8) | data[ptr+3];
+        ptr += 4;
         if (ext_type == 0) {
-            if (offset + 2 > len)
-                break;
-            uint16_t sni_name_len = (data[offset] << 8) | data[offset + 1];
-            offset += 2;
-            if (offset + sni_name_len <= len && sni_name_len < 255) {
-                strncpy(sni_out, (const char *)(data + offset), sni_name_len);
+            if (ptr + 2 > rec_end) break;
+            uint16 name_len = (data[ptr] << 8) | data[ptr+1];
+            ptr += 2;
+            if (ptr + name_len <= rec_len && name_len < 255) {
+                strncpy(sni_out, (const char*)(data+ptr), name_len);
             }
             break;
         }
-        offset += ext_len;
-        ext_total_len -= (4 + ext_len);
+        ptr += ext_len;
+        ext_total -= (4 + ext_len);
     }
 }

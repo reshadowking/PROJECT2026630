@@ -8,12 +8,14 @@ extern pthread_mutex_t stat_mutex;
 extern pthread_mutex_t flow_hash_mutex;
 
 // 封装统计递增接口，禁止直接操作g_stat
+void stat_inc_http_reassemble();
 void stat_inc_total(int byte);
 void stat_inc_tcp();
 void stat_inc_udp();
 void stat_inc_icmp();
 void stat_inc_http();
 void stat_inc_dns();
+
 
 // 五元组流量哈希接口
 void flow_stat_add(const flow5_key *key, int pkt_len);

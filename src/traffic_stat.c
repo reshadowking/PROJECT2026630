@@ -1,5 +1,6 @@
 #include "common.h"
 #include "traffic_stat.h"
+extern int use_ui;
 traffic_stat g_stat = {0};
 pthread_mutex_t stat_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t flow_hash_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -7,12 +8,13 @@ flow_stat_entry flow_hash[FLOW_HASH_SIZE] = {0};
 static pthread_t stat_tid;
 static int stat_running = 1;
 static void *stat_loop(void *arg);
-
 static unsigned int flow_hash_idx(const flow5_key *k) {
-    unsigned int h = k->sip ^ k->dip ^ k->sp ^ k->dp ^ k->proto;
+    unsigned int h1 = k->sip ^ (k->dip << 13);
+    unsigned int h2 = (k->sp << 8) ^ k->dp ^ k->proto;
+    unsigned int h = h1 ^ (h2 >> 5);
+    h ^= h >> 16;
     return h % FLOW_HASH_SIZE;
 }
-
 void flow_stat_add(const flow5_key *key, int pkt_len) {
     pthread_mutex_lock(&flow_hash_mutex);
     unsigned int idx = flow_hash_idx(key);
@@ -34,7 +36,6 @@ void flow_stat_add(const flow5_key *key, int pkt_len) {
     }
     pthread_mutex_unlock(&flow_hash_mutex);
 }
-
 void print_all_flow_stat() {
     pthread_mutex_lock(&flow_hash_mutex);
     printf("--------五元组流量明细--------\n");
@@ -48,7 +49,6 @@ void print_all_flow_stat() {
     printf("-----------------------------\n");
     pthread_mutex_unlock(&flow_hash_mutex);
 }
-
 void stat_inc_total(int byte) {
     pthread_mutex_lock(&stat_mutex);
     g_stat.pkt_total++;
@@ -80,7 +80,11 @@ void stat_inc_dns() {
     g_stat.pkt_dns++;
     pthread_mutex_unlock(&stat_mutex);
 }
-
+void stat_inc_http_reassemble() {
+    pthread_mutex_lock(&stat_mutex);
+    g_stat.pkt_http++;
+    pthread_mutex_unlock(&stat_mutex);
+}
 void print_stat() {
     pthread_mutex_lock(&stat_mutex);
     printf("===== 全局流量汇总 =====\n");
@@ -91,24 +95,25 @@ void print_stat() {
     pthread_mutex_unlock(&stat_mutex);
     print_all_flow_stat();
 }
-
 void *stat_loop(void *arg) {
     (void)arg;
     int tick_cnt = 0;
     const int TICK_PER_SEC = 10;
-    const int PRINT_INTERVAL = 1; // 1秒打印一次汇总
+    const int PRINT_INTERVAL = 1;
     while(stat_running) {
         usleep(100000);
         if (!stat_running) break;
         tick_cnt++;
         if (tick_cnt >= TICK_PER_SEC * PRINT_INTERVAL) {
-            print_stat();
+            // UI模式禁止打印，避免stdout重定向卡死抓包循环
+            if (!use_ui) {
+                print_stat();
+            }
             tick_cnt = 0;
         }
     }
     return NULL;
 }
-
 void stat_thread_start() {
     stat_running = 1;
     pthread_create(&stat_tid, NULL, stat_loop, NULL);
