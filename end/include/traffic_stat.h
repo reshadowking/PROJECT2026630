@@ -24,4 +24,8 @@ void print_all_flow_stat();
 void stat_thread_start();
 void stat_thread_stop();
 void print_stat();
+
+/* Exposed for UI traffic tab — defined in traffic_stat.c */
+extern flow_stat_entry flow_hash[FLOW_HASH_SIZE];
+
 #endif

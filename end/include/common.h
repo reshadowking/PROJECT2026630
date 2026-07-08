@@ -20,6 +20,20 @@ typedef unsigned int u_uint;
 #define BUF_MAX     65535
 #define STAT_INTERVAL 1
 
+
+// UI display filter type
+typedef enum {
+    UI_FILTER_ALL,
+    UI_FILTER_TCP,
+    UI_FILTER_UDP,
+    UI_FILTER_ICMP,
+    UI_FILTER_IPV4,
+    UI_FILTER_IPV6
+} UiFilterType;
+extern UiFilterType g_ui_filter;
+extern char g_filter_hint[64];
+
+
 // 二层以太网头
 struct eth_hdr {
     u_char dst_mac[MAC_LEN];
