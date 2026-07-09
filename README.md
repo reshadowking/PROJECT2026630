@@ -134,6 +134,7 @@ make debug && sudo ./sniffer -i lo -f "port 53"
 └──────────────────────────────────────────┘
 ```
 
+<<<<<<< HEAD
 ### 核心性能设计
 - **批量采集**：`pcap_dispatch(CAPTURE_BATCH=1024)` 批量获取报文
 - **非阻塞推送**：`pkt_queue_push_batch` 使用 `pthread_mutex_trylock` 避免抓包线程阻塞
@@ -174,6 +175,8 @@ gcc -Wall -Wextra -g -I./include -o test_http_parser test_http_parser.c src/http
 4. 高流量场景丢包率 < 1%
 5. http_pairs.log 正确输出请求-响应对
 6. TCP 动态缓冲区支持 > 8KB 的大 HTTP 响应
+=======
+>>>>>>> 82faa614957e61d21a53a0b1b7f0aa281038b3cb
 
 ## 项目结构
 
@@ -203,6 +206,9 @@ ZQ/
 │   └── logger.c        # 线程安全日志
 ├── Makefile            # 构建系统
 ├── README.md           # 本文档
+<<<<<<< HEAD
 
+=======
+>>>>>>> 82faa614957e61d21a53a0b1b7f0aa281038b3cb
 ```
 
