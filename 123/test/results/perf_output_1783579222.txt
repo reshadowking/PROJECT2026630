@@ -1,0 +1,12 @@
+Capture running... Ctrl+C to exit
+
+==== Cleanup start ====
+===== Global Traffic Summary =====
+TCP:5 UDP:1 ICMP:0 HTTP:2(Req:1 Resp:1) DNS:1 TotalPkt:6 TotalByte:494
+==================================
+-------- Flow Details --------
+10.0.0.1:54321 -> 93.184.216.34:80 proto=6 pkts=3 bytes=138
+93.184.216.34:80 -> 10.0.0.1:54321 proto=6 pkts=2 bytes=111
+10.0.0.1:12345 -> 8.8.8.8:53 proto=17 pkts=1 bytes=41
+-----------------------------
+Exit success
