@@ -9,7 +9,7 @@
 #define DNS_HDR_RD_MASK          0x0100
 #define DNS_HDR_RA_MASK          0x0080
 
-/* DNS header */
+// DNS头部
 struct dns_hdr {
     u_short id;
     u_short flags;
@@ -17,11 +17,7 @@ struct dns_hdr {
     u_short ancount;
     u_short nscount;
     u_short arcount;
-};
+} __attribute__((packed));
 
-/* Parse DNS payload and extract the first query name.
- * out_domain is filled with the dotted hostname (e.g. "www.example.com"),
- * or set to "" if not a DNS query or no QD records. */
-void parse_dns(const u_char *payload, int len, char *out_domain, int domain_sz);
-
+void parse_dns(const u_char *payload, int len, u_int sip, u_int dip, u_short sp, u_short dp);
 #endif
