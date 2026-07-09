@@ -23,7 +23,7 @@ int g_use_ncurses = 0;
 int use_ui = 0;
 UiFilterType g_ui_filter = UI_FILTER_ALL;
 UiTab g_ui_tab = UI_TAB_PACKET_LIST;
-char g_filter_hint[64] = "Filter: All";
+char g_filter_hint[64] = "过滤: 全部";
 volatile int exit_flag = 0;
 volatile int capture_pause = 0;
 char g_capture_dev[32] = {0};
@@ -191,6 +191,11 @@ int main(int argc, char **argv)
             while (!exit_flag) {
                 usleep(100000);
             }
+
+            /* print final statistics in text-fallback mode */
+            printf("\n");
+            print_stat();
+            fflush(stdout);
         }
     } else {
         capture_thread_start();
@@ -203,6 +208,11 @@ int main(int argc, char **argv)
         while (!exit_flag) {
             usleep(100000);
         }
+
+        /* print final statistics in text mode */
+        printf("\n");
+        print_stat();
+        fflush(stdout);
     }
 
     fflush(stdout);

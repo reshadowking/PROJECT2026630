@@ -1,7 +1,7 @@
 CC      = gcc
 CFLAGS  = -Wall -Wextra -O3 -march=native -g -pthread -DLOG_ACTIVE_LEVEL=LOG_LEVEL_INFO
 INCLUDE = -I./include
-LDFLAGS = -lpcap -lpthread -lncurses
+LDFLAGS = -lpcap -lpthread -lncursesw
 TARGET  = sniffer
 SRCDIR  = src
 OBJDIR  = obj

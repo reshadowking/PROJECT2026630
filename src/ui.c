@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <time.h>
+#include <locale.h>
 #include <arpa/inet.h>
 
 #define MAX_UI_PACKETS    100
@@ -65,7 +66,7 @@ static int detail_scroll = 0;
 static int list_scroll = 0;
 static int auto_follow = 1;
 static pthread_mutex_t ui_mutex = PTHREAD_MUTEX_INITIALIZER;
-static char ui_status[128] = "Waiting for packets...";
+static char ui_status[128] = "等待报文...";
 static time_t ui_start_time;
 
 /* ── 全局变量引用 ── */
@@ -170,10 +171,10 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
     struct eth_hdr *eth = (struct eth_hdr *)pkt;
     uint16_t etype = ntohs(eth->eth_type);
     snprintf(tmp, sizeof(tmp),
-        "[Layer 2 Ethernet]\n"
-        "Src MAC:%02x:%02x:%02x:%02x:%02x:%02x\n"
-        "Dst MAC:%02x:%02x:%02x:%02x:%02x:%02x\n"
-        "EtherType:0x%04X\n",
+        "[二层 以太网]\n"
+        "源MAC:%02x:%02x:%02x:%02x:%02x:%02x\n"
+        "目MAC:%02x:%02x:%02x:%02x:%02x:%02x\n"
+        "以太类型:0x%04X\n",
         eth->src_mac[0],eth->src_mac[1],eth->src_mac[2],
         eth->src_mac[3],eth->src_mac[4],eth->src_mac[5],
         eth->dst_mac[0],eth->dst_mac[1],eth->dst_mac[2],
@@ -184,7 +185,7 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
 
     /* IPv6 */
     if (etype == ETH_TYPE_IPV6 && pkt_len >= l2_offset + sizeof(struct ipv6_hdr)) {
-        strncat(out, "[==== Layer 3 IPv6 Header ====]\n", buf_len - strlen(out) - 1);
+        strncat(out, "[==== 三层 IPv6 头 ====]\n", buf_len - strlen(out) - 1);
         struct ipv6_hdr *ip6 = (struct ipv6_hdr *)(pkt + l2_offset);
         char sip6[INET6_ADDRSTRLEN] = {0};
         char dip6[INET6_ADDRSTRLEN] = {0};
@@ -192,8 +193,8 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
         inet_ntop(AF_INET6, ip6->daddr, dip6, sizeof(dip6));
         uint16_t pay_len = ntohs(ip6->payload_len);
         snprintf(tmp, sizeof(tmp),
-            "Source IPv6: %s\nDest IPv6: %s\nHop Limit: %d\n"
-            "Next Header Proto: %d\nPayload Length: %d\n",
+            "源IPv6: %s\n目IPv6: %s\n跳数限制: %d\n"
+            "下一头部协议: %d\n载荷长度: %d\n",
             sip6, dip6, ip6->hop_limit, ip6->next_hdr, pay_len);
         strncat(out, tmp, buf_len - strlen(out) - 1);
 
@@ -201,7 +202,7 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
         if (pkt_len < l4_off) goto end_hex;
 
         if (ip6->next_hdr == PROTO_TCP) {
-            strncat(out, "[==== Layer 4 TCP (IPv6) ====]\n", buf_len - strlen(out) - 1);
+            strncat(out, "[==== 四层 TCP (IPv6) ====]\n", buf_len - strlen(out) - 1);
             struct tcp_hdr *tcp = (struct tcp_hdr *)(pkt + l4_off);
             uint16_t sport = ntohs(tcp->sport);
             uint16_t dport = ntohs(tcp->dport);
@@ -212,15 +213,15 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
             if (tcp->flags & TCP_RST) strcat(flags_buf, "RST ");
             if (tcp->flags & TCP_PSH) strcat(flags_buf, "PSH ");
             snprintf(tmp, sizeof(tmp),
-                "Src Port: %u | Dst Port: %u\nFlags: %s\nSeq: %u | Ack: %u\n",
+                "源端口: %u | 目端口: %u\n标志: %s\n序号: %u | 确认号: %u\n",
                 sport, dport, flags_buf, ntohl(tcp->seq), ntohl(tcp->ack));
             strncat(out, tmp, buf_len - strlen(out) - 1);
         } else if (ip6->next_hdr == PROTO_UDP) {
-            strncat(out, "[==== Layer 4 UDP (IPv6) ====]\n", buf_len - strlen(out) - 1);
+            strncat(out, "[==== 四层 UDP (IPv6) ====]\n", buf_len - strlen(out) - 1);
             struct udp_hdr *udp = (struct udp_hdr *)(pkt + l4_off);
             uint16_t sport = ntohs(udp->sport);
             uint16_t dport = ntohs(udp->dport);
-            snprintf(tmp, sizeof(tmp), "Src Port: %u | Dst Port: %u\nUDP Payload Len: %u\n",
+            snprintf(tmp, sizeof(tmp), "源端口: %u | 目端口: %u\nUDP载荷长度: %u\n",
                 sport, dport, ntohs(udp->len));
             strncat(out, tmp, buf_len - strlen(out) - 1);
         }
@@ -229,7 +230,7 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
 
     /* IPv4 */
     if (etype == ETH_TYPE_IPV4 && pkt_len >= l2_offset + 20) {
-        strncat(out, "[==== Layer 3 IPv4 Header ====]\n", buf_len - strlen(out) - 1);
+        strncat(out, "[==== 三层 IPv4 头 ====]\n", buf_len - strlen(out) - 1);
         struct ipv4_hdr *ip4 = (struct ipv4_hdr *)(pkt + l2_offset);
         char sip4[INET_ADDRSTRLEN] = {0};
         char dip4[INET_ADDRSTRLEN] = {0};
@@ -237,13 +238,13 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
         inet_ntop(AF_INET, &ip4->daddr, dip4, sizeof(dip4));
         uint8_t ihl = (ip4->ihl & 0x0F) * 4;
         snprintf(tmp, sizeof(tmp),
-            "Source IP: %s\nDest IP: %s\nTTL: %d\nProtocol: %d\nTotal Len: %d\n",
+            "源IP: %s\n目IP: %s\nTTL: %d\n协议: %d\n总长度: %d\n",
             sip4, dip4, ip4->ttl, ip4->proto, ntohs(ip4->total_len));
         strncat(out, tmp, buf_len - strlen(out) - 1);
 
         uint32_t l4_off = l2_offset + ihl;
         if (ip4->proto == PROTO_TCP && pkt_len >= l4_off + sizeof(struct tcp_hdr)) {
-            strncat(out, "[==== Layer 4 TCP (IPv4) ====]\n", buf_len - strlen(out) - 1);
+            strncat(out, "[==== 四层 TCP (IPv4) ====]\n", buf_len - strlen(out) - 1);
             struct tcp_hdr *tcp = (struct tcp_hdr *)(pkt + l4_off);
             uint16_t sport = ntohs(tcp->sport);
             uint16_t dport = ntohs(tcp->dport);
@@ -254,22 +255,22 @@ void gen_proto_info(char *out, size_t buf_len, const u_char *pkt, uint32_t pkt_l
             if (tcp->flags & TCP_RST) strcat(flags_buf, "RST ");
             if (tcp->flags & TCP_PSH) strcat(flags_buf, "PSH ");
             snprintf(tmp, sizeof(tmp),
-                "Src Port: %u | Dst Port: %u\nFlags: %s\nSeq: %u | Ack: %u\n",
+                "源端口: %u | 目端口: %u\n标志: %s\n序号: %u | 确认号: %u\n",
                 sport, dport, flags_buf, ntohl(tcp->seq), ntohl(tcp->ack));
             strncat(out, tmp, buf_len - strlen(out) - 1);
         } else if (ip4->proto == PROTO_UDP && pkt_len >= l4_off + sizeof(struct udp_hdr)) {
-            strncat(out, "[==== Layer 4 UDP (IPv4) ====]\n", buf_len - strlen(out) - 1);
+            strncat(out, "[==== 四层 UDP (IPv4) ====]\n", buf_len - strlen(out) - 1);
             struct udp_hdr *udp = (struct udp_hdr *)(pkt + l4_off);
             uint16_t sport = ntohs(udp->sport);
             uint16_t dport = ntohs(udp->dport);
-            snprintf(tmp, sizeof(tmp), "Src Port: %u | Dst Port: %u\nUDP Len: %u\n",
+            snprintf(tmp, sizeof(tmp), "源端口: %u | 目端口: %u\nUDP长度: %u\n",
                 sport, dport, ntohs(udp->len));
             strncat(out, tmp, buf_len - strlen(out) - 1);
         }
     }
 
 end_hex:
-    strncat(out, "\n==== Raw Hex Dump ====\n", buf_len - strlen(out) - 1);
+    strncat(out, "\n==== 原始十六进制 ====\n", buf_len - strlen(out) - 1);
 }
 
 /*
@@ -316,7 +317,7 @@ void draw_layout(void)
     werase(stats_win);   box(stats_win, 0, 0);
 
     /* 标签页栏 */
-    const char *tabs[] = { "Packet List", "Traffic Stats", "App Layer" };
+    const char *tabs[] = { "报文列表", "流量统计", "应用层信息" };
     for (int i = 0; i < 3; i++) {
         if ((int)g_ui_tab == i)
             wattron(tab_bar_win, A_REVERSE);
@@ -324,13 +325,13 @@ void draw_layout(void)
         if ((int)g_ui_tab == i)
             wattroff(tab_bar_win, A_REVERSE);
     }
-    mvwprintw(tab_bar_win, 0, w - 20, "TAB:switch");
+    mvwprintw(tab_bar_win, 0, w - 20, "TAB:切换");
 
     char dur[64];
     human_duration(dur, sizeof(dur), ui_start_time);
-    mvwprintw(title_win, 1, 2, "Sniffer | iface:%s filter:%s uptime:%s total:%lu | %s",
+    mvwprintw(title_win, 1, 2, "抓包器 | 网卡:%s 过滤:%s 运行:%s 总数:%lu | %s",
         g_capture_dev, g_capture_filter, dur, total_packets, g_filter_hint);
-    mvwprintw(list_win, 1, 2, "#   LEN   PROTO FLOW");
+    mvwprintw(list_win, 1, 2, "#   长度  协议  流信息");
 
     wrefresh(title_win);
     wrefresh(tab_bar_win);
@@ -348,6 +349,9 @@ void draw_layout(void)
 void ui_init(void)
 {
     LOG_INFO("ui_init: initializing ncurses UI");
+
+    /* 设置 locale 启用 UTF-8 中文显示 */
+    setlocale(LC_ALL, "");
 
     WINDOW *scr = initscr();
     if (!scr) {
@@ -408,7 +412,7 @@ void ui_add_packet(const struct pcap_pkthdr *hdr, const u_char *data)
 
     size_t n = hdr->len > 128 ? 128 : hdr->len;
     char *d = p.detail;
-    snprintf(d, MAX_UI_DETAIL, "Packet Length: %u\nTimestamp: %ld.%06ld\nHex Dump:\n",
+    snprintf(d, MAX_UI_DETAIL, "报文长度: %u\n时间戳: %ld.%06ld\n十六进制:\n",
              hdr->len, (long)p.ts.tv_sec, (long)p.ts.tv_usec);
     size_t off = strlen(d);
     for (size_t i = 0; i < n; i++) {
@@ -507,35 +511,35 @@ static void draw_traffic_stats_tab(int body_h, int list_w, int detail_w)
     werase(list_win);    box(list_win, 0, 0);
     werase(detail_win);  box(detail_win, 0, 0);
 
-    mvwprintw(list_win, 1, 2, "── Global Stats ──");
+    mvwprintw(list_win, 1, 2, "── 全局统计 ──");
 
     int row = 2;
-    mvwprintw(list_win, row++, 2, "TCP  : %u pkts",  g_stat.pkt_tcp);
-    mvwprintw(list_win, row++, 2, "UDP  : %u pkts",  g_stat.pkt_udp);
-    mvwprintw(list_win, row++, 2, "ICMP : %u pkts",  g_stat.pkt_icmp);
-    mvwprintw(list_win, row++, 2, "HTTP : %u pkts",  g_stat.pkt_http);
-    mvwprintw(list_win, row++, 2, "DNS  : %u pkts",  g_stat.pkt_dns);
-    mvwprintw(list_win, row++, 2, "Total: %u pkts, %lu bytes",
+    mvwprintw(list_win, row++, 2, "TCP  : %u 包",  g_stat.pkt_tcp);
+    mvwprintw(list_win, row++, 2, "UDP  : %u 包",  g_stat.pkt_udp);
+    mvwprintw(list_win, row++, 2, "ICMP : %u 包",  g_stat.pkt_icmp);
+    mvwprintw(list_win, row++, 2, "HTTP : %u 包",  g_stat.pkt_http);
+    mvwprintw(list_win, row++, 2, "DNS  : %u 包",  g_stat.pkt_dns);
+    mvwprintw(list_win, row++, 2, "总计 : %u 包, %lu 字节",
               g_stat.pkt_total, g_stat.byte_total);
 
     row++;
-    mvwprintw(list_win, row++, 2, "── Pcap Drops ──");
+    mvwprintw(list_win, row++, 2, "── 底层丢包 ──");
     unsigned long dropped = 0, if_dropped = 0;
     if (capture_get_dropped(&dropped, &if_dropped) == 0) {
-        mvwprintw(list_win, row++, 2, "Kernel drops : %lu", dropped);
-        mvwprintw(list_win, row++, 2, "IF drops     : %lu", if_dropped);
+        mvwprintw(list_win, row++, 2, "内核丢包 : %lu", dropped);
+        mvwprintw(list_win, row++, 2, "接口丢包 : %lu", if_dropped);
     } else {
-        mvwprintw(list_win, row++, 2, "(stats unavailable)");
+        mvwprintw(list_win, row++, 2, "(统计不可用)");
     }
 
     row++;
     char flow_buf[256];
     tcp_flow_stats(flow_buf, sizeof(flow_buf));
-    mvwprintw(list_win, row++, 2, "── TCP Flows ──");
+    mvwprintw(list_win, row++, 2, "── TCP 流 ──");
     mvwprintw(list_win, row++, 2, "%s", flow_buf);
 
     /* 右侧: 实时速率 */
-    mvwprintw(detail_win, 1, 2, "── Flow Table (TOP 20) ──");
+    mvwprintw(detail_win, 1, 2, "── 流表 (前20) ──");
     row = 2;
     extern flow_stat_entry *flow_hash[FLOW_HASH_SIZE];
     /* 快速汇总 TOP-N */
@@ -574,22 +578,21 @@ static void draw_app_layer_tab(int body_h, int list_w, int detail_w)
     werase(list_win);    box(list_win, 0, 0);
     werase(detail_win);  box(detail_win, 0, 0);
 
-    mvwprintw(list_win, 1, 2, "── Application Layer ──");
+    mvwprintw(list_win, 1, 2, "── 应用层信息 ──");
     int row = 2;
 
-    mvwprintw(list_win, row++, 2, "HTTP Messages Reassembled : %u", g_stat.pkt_http);
-    mvwprintw(list_win, row++, 2, "DNS Queries Detected      : %u", g_stat.pkt_dns);
-    mvwprintw(list_win, row++, 2, "TLS Handshakes Detected   : (see debug log)");
+    mvwprintw(list_win, row++, 2, "HTTP 重组消息 : %u", g_stat.pkt_http);
+    mvwprintw(list_win, row++, 2, "DNS 查询检测  : %u", g_stat.pkt_dns);
+    mvwprintw(list_win, row++, 2, "TLS 握手检测  : (见调试日志)");
 
     row++;
-    mvwprintw(list_win, row++, 2, "── HTTP Pair Log ──");
-    mvwprintw(list_win, row++, 2, "File: http_pairs.log");
-    mvwprintw(list_win, row++, 2, "Request-Response pairs are");
-    mvwprintw(list_win, row++, 2, "written to this file in");
-    mvwprintw(list_win, row++, 2, "append mode.");
+    mvwprintw(list_win, row++, 2, "── HTTP 配对日志 ──");
+    mvwprintw(list_win, row++, 2, "文件: http_pairs.log");
+    mvwprintw(list_win, row++, 2, "请求-响应对以追加模式");
+    mvwprintw(list_win, row++, 2, "写入该文件。");
 
     /* 右侧: 显示最后几个 HTTP 摘要 */
-    mvwprintw(detail_win, 1, 2, "── HTTP Activity (from ui ring) ──");
+    mvwprintw(detail_win, 1, 2, "── HTTP 活动 ──");
     row = 2;
     for (int i = pkt_count - 1; i >= 0 && row < body_h; i--) {
         if (packets[i].proto_tag == PKT_IPV4_TCP) {
@@ -638,7 +641,7 @@ void ui_refresh(void)
     werase(stats_win);   box(stats_win, 0, 0);
 
     /* 标签页栏 */
-    const char *tabs[] = { "Packet List", "Traffic Stats", "App Layer" };
+    const char *tabs[] = { "报文列表", "流量统计", "应用层信息" };
     for (int i = 0; i < 3; i++) {
         if ((int)g_ui_tab == i)
             wattron(tab_bar_win, A_REVERSE);
@@ -646,7 +649,7 @@ void ui_refresh(void)
         if ((int)g_ui_tab == i)
             wattroff(tab_bar_win, A_REVERSE);
     }
-    mvwprintw(tab_bar_win, 0, w - 20, "TAB:switch");
+    mvwprintw(tab_bar_win, 0, w - 20, "TAB:切换");
 
     pthread_mutex_lock(&ui_mutex);
 
@@ -682,7 +685,7 @@ void ui_refresh(void)
         werase(detail_win); box(detail_win, 0, 0);
 
         /* 列表页头部 */
-        mvwprintw(list_win, 1, 2, "#   LEN   PROTO FLOW");
+        mvwprintw(list_win, 1, 2, "#   长度  协议  流信息");
 
         /* 分页提示 */
         if (total_matched > visible_rows) {
@@ -751,19 +754,19 @@ void ui_refresh(void)
 
     /* ── 底部状态栏 (所有标签页通用) ── */
     char pause_text[32] = "";
-    if (capture_pause) strcpy(pause_text, "[PAUSED - Space to resume]");
+    if (capture_pause) strcpy(pause_text, "[已暂停 - 空格恢复]");
 
     unsigned long dropped = 0, if_dropped = 0;
     capture_get_dropped(&dropped, &if_dropped);
     mvwprintw(stats_win, 1, 2,
-        "TCP:%d UDP:%d ICMP:%d ActiveFlows:%d | Drops(kern:%lu if:%lu) | 1-6:Filter TAB:Page UP/DN:PgUp/PgDn Q SPACE C %s",
+        "TCP:%d UDP:%d ICMP:%d 活跃流:%d | 丢包(内核:%lu 接口:%lu) | 1-6:过滤 TAB:换页 ↑↓ PgUp/PgDn Q:退出 空格:暂停 C:清除 %s",
         g_stat.pkt_tcp, g_stat.pkt_udp, g_stat.pkt_icmp,
         tcp_flow_active_count(), dropped, if_dropped, pause_text);
 
     /* 标题栏 */
     char dur[64];
     human_duration(dur, sizeof(dur), ui_start_time);
-    mvwprintw(title_win, 1, 2, "Sniffer | iface:%s filter:%s uptime:%s total:%lu | %s",
+    mvwprintw(title_win, 1, 2, "抓包器 | 网卡:%s 过滤:%s 运行:%s 总数:%lu | %s",
         g_capture_dev, g_capture_filter, dur, total_packets, g_filter_hint);
 
     wrefresh(title_win);
@@ -818,10 +821,10 @@ int ui_handle_input(void)
     if (ch == ' ') {
         capture_pause = !capture_pause;
         if (capture_pause) {
-            ui_set_status("PAUSED - Press SPACE to resume");
+            ui_set_status("已暂停 - 按空格恢复");
             LOG_INFO("capture paused by user");
         } else {
-            ui_set_status("Capturing traffic");
+            ui_set_status("正在抓包");
             LOG_INFO("capture resumed by user");
         }
         return 1;
@@ -840,12 +843,12 @@ int ui_handle_input(void)
     }
 
     /* ── 过滤按键 (仅报文列表页) ── */
-    if (ch == '1') { g_ui_filter = UI_FILTER_ALL;  strcpy(g_filter_hint, "Filter: All Packets"); list_scroll = 0; auto_follow = 0; return 1; }
-    if (ch == '2') { g_ui_filter = UI_FILTER_TCP;  strcpy(g_filter_hint, "Filter: TCP Only");    list_scroll = 0; auto_follow = 0; return 1; }
-    if (ch == '3') { g_ui_filter = UI_FILTER_UDP;  strcpy(g_filter_hint, "Filter: UDP Only");    list_scroll = 0; auto_follow = 0; return 1; }
-    if (ch == '4') { g_ui_filter = UI_FILTER_ICMP; strcpy(g_filter_hint, "Filter: ICMP Only");   list_scroll = 0; auto_follow = 0; return 1; }
-    if (ch == '5') { g_ui_filter = UI_FILTER_IPV4; strcpy(g_filter_hint, "Filter: IPv4 Only");   list_scroll = 0; auto_follow = 0; return 1; }
-    if (ch == '6') { g_ui_filter = UI_FILTER_IPV6; strcpy(g_filter_hint, "Filter: IPv6 Only");   list_scroll = 0; auto_follow = 0; return 1; }
+    if (ch == '1') { g_ui_filter = UI_FILTER_ALL;  strcpy(g_filter_hint, "过滤: 全部");  list_scroll = 0; auto_follow = 0; return 1; }
+    if (ch == '2') { g_ui_filter = UI_FILTER_TCP;  strcpy(g_filter_hint, "过滤: 仅TCP");  list_scroll = 0; auto_follow = 0; return 1; }
+    if (ch == '3') { g_ui_filter = UI_FILTER_UDP;  strcpy(g_filter_hint, "过滤: 仅UDP");  list_scroll = 0; auto_follow = 0; return 1; }
+    if (ch == '4') { g_ui_filter = UI_FILTER_ICMP; strcpy(g_filter_hint, "过滤: 仅ICMP"); list_scroll = 0; auto_follow = 0; return 1; }
+    if (ch == '5') { g_ui_filter = UI_FILTER_IPV4; strcpy(g_filter_hint, "过滤: 仅IPv4"); list_scroll = 0; auto_follow = 0; return 1; }
+    if (ch == '6') { g_ui_filter = UI_FILTER_IPV6; strcpy(g_filter_hint, "过滤: 仅IPv6"); list_scroll = 0; auto_follow = 0; return 1; }
 
     /* ── 报文列表页导航 ── */
     if (g_ui_tab != UI_TAB_PACKET_LIST) return 0;

@@ -43,6 +43,7 @@ static pthread_t g_parser_tids[PARSER_WORKERS];
 static int g_capture_running = 0;
 static int g_parsers_running = 0;
 static volatile unsigned long g_dropped = 0;   /* 内部队列丢弃计数 */
+static unsigned long g_total_captured = 0;      /* 已抓到报文总数 (离线回放用) */
 
 /* ──────────────────────────────────────────────
  *  capture batch context — 批量抓包上下文
@@ -328,6 +329,8 @@ static void *capture_loop(void *arg)
         int n = pcap_dispatch(g_handle, CAPTURE_BATCH, pkt_callback, (u_char *)&ctx);
 
         if (n > 0) {
+            g_total_captured += (unsigned long)n;
+
             /* 1) DUMP: 直接写 pcap 文件 (内联, 无额外队列) */
             if (g_dumper) {
                 for (int i = 0; i < ctx.batch_count; i++) {
@@ -345,7 +348,12 @@ static void *capture_loop(void *arg)
             }
         } else if (n == 0 && g_is_offline) {
             /* offline file EOF */
-            LOG_INFO("pcap_dispatch: EOF from offline file (0 packets)");
+            if (g_total_captured == 0) {
+                LOG_WARN("pcap_dispatch: EOF on offline file, 0 packets read. File may be empty or corrupt.");
+            } else {
+                LOG_INFO("pcap_dispatch: EOF from offline file (%lu packets processed)",
+                         g_total_captured);
+            }
             exit_flag = 1;
             break;
         } else if (n == -1) {
